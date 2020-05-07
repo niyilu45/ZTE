@@ -2,10 +2,12 @@
 
 int Result = 0;
 PointCacheStruct* ResultPointCache;
+ResultNameCacheStruct** ResultNameCache;
 
 int main(void){
 	// Clock Start.
 	clock_t start = clock();
+
 
 	// 1) Load CSV file.
 	EdgeStruct* Edge;
@@ -13,7 +15,7 @@ int main(void){
 
 	// 2) Find the Circ
 	ResultPointCache = InitPointCache(MaxCircLen);
-	int CircLen = 6;
+	int CircLen = 12;
 	FindCirc(CircLen, Edge);
 	printf("Circ %d = %d \n", CircLen, Result);
 
@@ -31,7 +33,14 @@ int FindCirc(int CircLen, EdgeStruct* Edge){
 	int ColCnt;
 	int i,j;
 
-	// 1) Set the most left side.
+	// 1) Init the ResultName cache
+	int ResultNameCacheM = CircLen / 2 * Edge->M;
+	int ResultNameCacheN = CircLen / 2 * Edge->N;
+	ResultNameCache = (ResultNameCacheStruct**)malloc(sizeof(ResultNameCacheStruct) * ResultNameCacheM);
+	for(int i=0;i<ResultNameCacheM;i++){
+		ResultNameCache[i] = (ResultNameCacheStruct*)calloc(ResultNameCacheN, sizeof(ResultNameCacheStruct));
+	}
+	// 2) Set the most left side.
 	Point Head;
 	Point Tail;
 	int NewPointNum;
@@ -100,9 +109,9 @@ int FindNewPoint(Point Head, Point Tail, int NewPointNum, EdgeStruct* Edge){
 				Last1Point.y = Tail.y;
 				if(Last1Point.x == Last2Point.x){
 					PushPointCache(Last1Point, ResultPointCache);
-					if(Last1Point.x > Tail.x){
+					if(PushNameCache(ResultPointCache)){
 						Result++;
-						FileWritePointCache(ResultPointCache);
+						//FileWritePointCache(ResultPointCache);
 					}
 					PopPointCache(ResultPointCache);
 				}
@@ -114,6 +123,88 @@ int FindNewPoint(Point Head, Point Tail, int NewPointNum, EdgeStruct* Edge){
 	return 0;
 }
 
+int PushNameCache(PointCacheStruct* ResultPointCache){
+	int i;
+	int xSum = 0;
+	int ySum = 0;
+	int* TempxIdx;
+	int* TempyIdx;
+	TempxIdx = (int*)malloc(sizeof(int) * ResultPointCache->CacheCnt/2);
+	TempyIdx = (int*)malloc(sizeof(int) * ResultPointCache->CacheCnt/2);
+	for(i=0;i<ResultPointCache->CacheCnt;i+=2){
+		xSum += ResultPointCache->P[i].x;
+		ySum += ResultPointCache->P[i].y;
+		TempxIdx[i/2] = ResultPointCache->P[i].x;
+		TempyIdx[i/2] = ResultPointCache->P[i].y;
+	}
+
+	NameStruct* NameTemp;
+	NameStruct* CurName;
+	NameStruct* LastName;
+	CurName = ResultNameCache[ySum][xSum].Name;
+	if(CurName == NULL){
+		NameTemp = (NameStruct*)malloc(sizeof(NameStruct));
+		NameTemp->next = NULL;
+		NameTemp->xIdx = TempxIdx;
+		NameTemp->yIdx = TempyIdx;
+
+		ResultNameCache[ySum][xSum].Name = NameTemp;
+		return 1;
+	}
+	else{
+		int Duplicate = 0;
+		while(CurName != NULL){
+			Duplicate = CheckDuplicate(TempxIdx, CurName->xIdx, TempyIdx, CurName->yIdx, ResultPointCache->CacheCnt/2);
+			if(Duplicate == 1){
+				break;
+			}
+			LastName = CurName;
+			CurName = CurName->next;
+		}
+		if(Duplicate == 0){
+			NameTemp = (NameStruct*)malloc(sizeof(NameStruct));
+			NameTemp->next = NULL;
+			NameTemp->xIdx = TempxIdx;
+			NameTemp->yIdx = TempyIdx;
+
+			LastName->next = NameTemp;
+
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+int CheckDuplicate(int* xIdxA, int* xIdxB, int* yIdxA, int* yIdxB, int Len){
+	int i,j;
+	int Same;
+	for(i=0;i<Len;i++){
+		Same = 0;
+		for(j=0;j<Len;j++){
+			if(xIdxA[i] == xIdxB[j]){
+				Same = 1;
+			}
+		}
+		if(Same == 0){
+			return 0;
+		}
+	}
+
+	for(i=0;i<Len;i++){
+		Same = 0;
+		for(j=0;j<Len;j++){
+			if(yIdxA[i] == yIdxB[j]){
+				Same = 1;
+			}
+		}
+		if(Same == 0){
+			return 0;
+		}
+	}
+
+	return 1;
+}
 
 PointCacheStruct* InitPointCache(int CacheLen){
 	PointCacheStruct* PointCache;
@@ -218,12 +309,12 @@ EdgeStruct* LoadCSV(void){
 		N = 0;
 		while(record != NULL){
 			val = atoi(record);
-			printf("%d",val);
+			//printf("%d",val);
 			Matrix[M][N] = val;
 			record = strtok(NULL, ",");
 			N++;
 		}
-		printf("\n");
+		//printf("\n");
 		M++;
 	}
 	fclose(Fid);
