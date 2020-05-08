@@ -1,6 +1,8 @@
 #ifndef __MAIN_H
 #define __MAIN_H
 
+#define __LINUX
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -64,4 +66,5 @@ int FileWritePointCache(PointCacheStruct* PointCache);
 
 int ReleasePointCache(PointCacheStruct** PointCachePointer);
 int ReleaseEdge(EdgeStruct** EdgePointer);
+int ReleaseNameCache(NameStruct* Name);
 #endif

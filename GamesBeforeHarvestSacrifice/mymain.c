@@ -14,7 +14,12 @@ int main(void){
 	// 2) Find the Circ
 	FILE* Fid = NULL;
 	// clear and create result.txt
-	if((Fid = fopen(FileResult,"w")) == NULL){
+	#ifdef __LINUX
+	Fid = fopen(FileResult,"w");
+	#else
+	fopen_s(&Fid, FileResult,"w");
+	#endif
+	if(Fid == NULL){
 		printf("Can not create result.txt!\n");
 		return 0;
 	}
@@ -22,7 +27,11 @@ int main(void){
 	ResultPointCache = InitPointCache(MaxCircLen);
 	int CircLen = 4;
 	for(CircLen = 4;CircLen <= MaxCircLen; CircLen+=2){
+		#ifdef __LINUX
 		Fid = fopen(FileResult,"a+");
+		#else
+		fopen_s(&Fid, FileResult,"a+");
+		#endif
 clock_t start = clock();
 		FindCirc(CircLen, Edge);
 		printf("\r\nCirc %d = %d.", CircLen, Result);
@@ -60,7 +69,13 @@ int FindCirc(int CircLen, EdgeStruct* Edge){
 	Point Tail;
 	int NewPointNum;
 	NewPointNum = CircLen / 2 - 2; // Get rid of Head and Tail.
-	for(ColCnt=0;ColCnt<Edge->N;ColCnt++){
+	int MinColSumGap = 0;
+	int CurMinColSum = 0;
+	for(i=0;i<CircLen/2;i++){
+		CurMinColSum += i;
+	}
+	MinColSumGap = CircLen/2;
+	for(ColCnt=0;ColCnt<Edge->N-CircLen/2+1;ColCnt++){
 		for(i=0;i<(Edge->ColEdge+ColCnt)->degree-1;i++){
 			Tail.x = ColCnt;
 			Tail.y = *((Edge->ColEdge+ColCnt)->Idx+i);
@@ -74,24 +89,29 @@ int FindCirc(int CircLen, EdgeStruct* Edge){
 			}
 			PopPointCache(ResultPointCache);
 		}
+
+		// To save memory, release part of ResultNameCache.
+		for(j=CurMinColSum;j<CurMinColSum+MinColSumGap;j++){
+			for(i=0;i<ResultNameCacheM;i++){
+				ReleaseNameCache(ResultNameCache[i][j].Name);
+			}
+		}
+		CurMinColSum += MinColSumGap;
 	}
 
 	// 3) Release the ResultName Cache
 	NameStruct* TempName;
 	NameStruct* CurName;
+	/*
 	for(i=0;i<ResultNameCacheM;i++){
 		for(j=0;j<ResultNameCacheN;j++){
-			CurName = ResultNameCache[i][j].Name;
-			while(CurName != NULL){
-				TempName = CurName->next;
-				free(CurName->xIdx);
-				CurName->xIdx;
-				free(CurName->yIdx);
-				CurName->yIdx;
-				free(CurName);
-				CurName = TempName;
-			}
-
+			ReleaseNameCache(ResultNameCache[i][j].Name);
+		}
+	}
+	*/
+	for(j=CurMinColSum;j<ResultNameCacheN;j++){
+		for(i=0;i<ResultNameCacheM;i++){
+			ReleaseNameCache(ResultNameCache[i][j].Name);
 		}
 	}
 
@@ -101,6 +121,24 @@ int FindCirc(int CircLen, EdgeStruct* Edge){
 	}
 	free(ResultNameCache);
 	ResultNameCache = NULL;
+	return 0;
+}
+
+int ReleaseNameCache(NameStruct* Name){
+	NameStruct* CurName;
+	NameStruct* TempName;
+	CurName = Name;
+
+	while(CurName != NULL){
+		TempName = CurName->next;
+		free(CurName->xIdx);
+		CurName->xIdx = NULL;
+		free(CurName->yIdx);
+		CurName->yIdx = NULL;
+		free(CurName);
+		CurName = TempName;
+	}
+
 	return 0;
 }
 
@@ -299,7 +337,12 @@ EdgeStruct* LoadCSV(void){
 
 	// 1) Read CSV flie to Matrix.
 	FILE* Fid = NULL;
-	if((Fid = fopen(CSVName,"r")) == NULL){
+	#ifdef __LINUX
+	Fid = fopen(CSVName,"r");
+	#else
+	fopen_s(&Fid, CSVName,"r");
+	#endif
+	if(Fid == NULL){
 		printf("Can not open Example.csv!\n");
 		return NULL;
 	}
@@ -309,7 +352,6 @@ EdgeStruct* LoadCSV(void){
     char buffer[MaxMatrixN];
 	char *line;
 	char *record;
-	char *strtmp;
 	char *p;
 	int** Matrix;
 	Matrix = (int**)malloc(sizeof(int*) * MaxMatrixM);
@@ -320,17 +362,26 @@ EdgeStruct* LoadCSV(void){
 	int M;
 	int N;
 
-	M = 0;
-	while ((line = fgets(buffer, sizeof(buffer), Fid))!=NULL){//当没有读取到文件末尾时循环继续
-		strtmp = (char*)calloc(strlen(line)+1,sizeof(char));
-		memcpy(strtmp, line, sizeof(char) * (strlen(line)+1));
+	M = 0;;
+	char* strtmp;
+	while ((line = fgets(buffer, sizeof(buffer), Fid)) != NULL) {//当没有读取到文件末尾时循环继续
+		strtmp = (char*)calloc(strlen(line) + 1, sizeof(char));
+		memcpy(strtmp, line, sizeof(char) * (strlen(line) + 1));
+		#ifdef __LINUX
 		record = strtok_r(strtmp, ",",&p);
+		#else
+		record = strtok_s(strtmp, ",",&p);
+		#endif
 		N = 0;
 		while(record != NULL){
 			val = atoi(record);
 			//printf("%d",val);
 			Matrix[M][N] = val;
+			#ifdef __LINUX
 			record = strtok_r(NULL, ",", &p);
+			#else
+			record = strtok_s(NULL, ",", &p);
+			#endif
 			N++;
 		}
 		//printf("\n");
@@ -394,7 +445,12 @@ EdgeStruct* LoadCSV(void){
 
 int FileWritePointCache(PointCacheStruct* PointCache){
 	int i;
-	FILE* Fid = fopen(FileDetail, "a+");
+	FILE* Fid;
+	#ifdef __LINUX
+	Fid = fopen(FileDetail, "a+");
+	#else
+	fopen_s(&Fid, FileDetail, "a+");
+	#endif
 	if(Fid == NULL){
 		return -1;
 	}
