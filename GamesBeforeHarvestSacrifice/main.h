@@ -7,7 +7,7 @@
 #include <time.h>
 
 #define CSVName			"Example.csv"
-#define FileResult		"Result.txt"
+#define FileResult		"result.txt"
 #define FileDetail		"ResultDetail.txt"
 #define MaxMatrixM		3000
 #define MaxMatrixN		3000
@@ -50,16 +50,18 @@ typedef struct ResultNameCacheStruct{
 
 EdgeStruct* LoadCSV(void);
 int FindCirc(int CircLen, EdgeStruct* Edge);
-int FindNewPoint(Point Head, Point Tail, int NewPointNum, EdgeStruct* Edge);
+int FindNewPoint(Point Head, Point Tail, int NewPointNum, EdgeStruct* Edge, ResultNameCacheStruct** ResultNameCache);
 PointCacheStruct* InitPointCache(int CacheLen);
-int ReleasePointCache(PointCacheStruct** PointCachePointer);
 int PushPointCache(Point P, PointCacheStruct* PointCache);
 Point PopPointCache(PointCacheStruct* PointCache);
 int FindValXInPointCache(int ValX, int StartIdx, PointCacheStruct* PointCache);
 int FindValYInPointCache(int ValY, int StartIdx, PointCacheStruct* PointCache);
 
-int PushNameCache(PointCacheStruct* ResultPointCache);
+int PushNameCache(PointCacheStruct* ResultPointCache, ResultNameCacheStruct** ResultNameCache);
 int CheckDuplicate(int* xIdxA, int* xIdxB, int* yIdxA, int* yIdxB, int Len);
 
 int FileWritePointCache(PointCacheStruct* PointCache);
+
+int ReleasePointCache(PointCacheStruct** PointCachePointer);
+int ReleaseEdge(EdgeStruct** EdgePointer);
 #endif

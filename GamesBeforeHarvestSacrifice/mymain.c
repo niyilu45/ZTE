@@ -2,11 +2,9 @@
 
 int Result = 0;
 PointCacheStruct* ResultPointCache;
-ResultNameCacheStruct** ResultNameCache;
 
 int main(void){
 	// Clock Start.
-	clock_t start = clock();
 
 
 	// 1) Load CSV file.
@@ -14,18 +12,33 @@ int main(void){
 	Edge = LoadCSV();
 
 	// 2) Find the Circ
+	FILE* Fid = NULL;
+	// clear and create result.txt
+	if((Fid = fopen(FileResult,"w")) == NULL){
+		printf("Can not create result.txt!\n");
+		return 0;
+	}
+	fclose(Fid);
 	ResultPointCache = InitPointCache(MaxCircLen);
-	int CircLen = 12;
-	FindCirc(CircLen, Edge);
-	printf("Circ %d = %d \n", CircLen, Result);
-
+	int CircLen = 4;
+	for(CircLen = 4;CircLen <= MaxCircLen; CircLen+=2){
+		Fid = fopen(FileResult,"a+");
+clock_t start = clock();
+		FindCirc(CircLen, Edge);
+		printf("\r\nCirc %d = %d.", CircLen, Result);
+clock_t end = (clock() - start)/CLOCKS_PER_SEC;
+printf("\r\nTime is %ld s\n", end);
+		fprintf(Fid,"The offerings with %2d names on the wooden tray have a maximum of %d\n",CircLen, Result);
+		fclose(Fid);
+	}
 
 	// Free
 	ReleasePointCache(&ResultPointCache);
+	ReleaseEdge(&Edge);
 
 	// Clock End.
-	clock_t end = (clock() - start)/CLOCKS_PER_SEC;
-	printf("\r\nTime is %ld s", end);
+
+	printf("\n");
 	return 0;
 }
 
@@ -34,6 +47,8 @@ int FindCirc(int CircLen, EdgeStruct* Edge){
 	int i,j;
 
 	// 1) Init the ResultName cache
+	Result = 0;
+	ResultNameCacheStruct** ResultNameCache;
 	int ResultNameCacheM = CircLen / 2 * Edge->M;
 	int ResultNameCacheN = CircLen / 2 * Edge->N;
 	ResultNameCache = (ResultNameCacheStruct**)malloc(sizeof(ResultNameCacheStruct) * ResultNameCacheM);
@@ -54,16 +69,42 @@ int FindCirc(int CircLen, EdgeStruct* Edge){
 			for(j=i+1;j<(Edge->ColEdge+ColCnt)->degree;j++){
 				Head.y = *((Edge->ColEdge+ColCnt)->Idx+j);
 				PushPointCache(Head, ResultPointCache);
-				FindNewPoint(Head, Tail, NewPointNum, Edge);
+				FindNewPoint(Head, Tail, NewPointNum, Edge, ResultNameCache);
 				PopPointCache(ResultPointCache);
 			}
 			PopPointCache(ResultPointCache);
 		}
 	}
+
+	// 3) Release the ResultName Cache
+	NameStruct* TempName;
+	NameStruct* CurName;
+	for(i=0;i<ResultNameCacheM;i++){
+		for(j=0;j<ResultNameCacheN;j++){
+			CurName = ResultNameCache[i][j].Name;
+			while(CurName != NULL){
+				TempName = CurName->next;
+				free(CurName->xIdx);
+				CurName->xIdx;
+				free(CurName->yIdx);
+				CurName->yIdx;
+				free(CurName);
+				CurName = TempName;
+			}
+
+		}
+	}
+
+	for(i=0;i<ResultNameCacheM;i++){
+		free(ResultNameCache[i]);
+		ResultNameCache[i] = NULL;
+	}
+	free(ResultNameCache);
+	ResultNameCache = NULL;
 	return 0;
 }
 
-int FindNewPoint(Point Head, Point Tail, int NewPointNum, EdgeStruct* Edge){
+int FindNewPoint(Point Head, Point Tail, int NewPointNum, EdgeStruct* Edge, ResultNameCacheStruct** ResultNameCache){
 	int i,j;
 	Point NewPoint;
 	Point TempPoint;
@@ -87,7 +128,7 @@ int FindNewPoint(Point Head, Point Tail, int NewPointNum, EdgeStruct* Edge){
 					continue;
 				}
 				PushPointCache(NewPoint, ResultPointCache);
-				FindNewPoint(NewPoint, Tail, NewPointNum-1, Edge);
+				FindNewPoint(NewPoint, Tail, NewPointNum-1, Edge, ResultNameCache);
 				PopPointCache(ResultPointCache);
 			}
 			PopPointCache(ResultPointCache);
@@ -109,7 +150,7 @@ int FindNewPoint(Point Head, Point Tail, int NewPointNum, EdgeStruct* Edge){
 				Last1Point.y = Tail.y;
 				if(Last1Point.x == Last2Point.x){
 					PushPointCache(Last1Point, ResultPointCache);
-					if(PushNameCache(ResultPointCache)){
+					if(PushNameCache(ResultPointCache, ResultNameCache)){
 						Result++;
 						//FileWritePointCache(ResultPointCache);
 					}
@@ -123,7 +164,7 @@ int FindNewPoint(Point Head, Point Tail, int NewPointNum, EdgeStruct* Edge){
 	return 0;
 }
 
-int PushNameCache(PointCacheStruct* ResultPointCache){
+int PushNameCache(PointCacheStruct* ResultPointCache, ResultNameCacheStruct** ResultNameCache){
 	int i;
 	int xSum = 0;
 	int ySum = 0;
@@ -153,6 +194,7 @@ int PushNameCache(PointCacheStruct* ResultPointCache){
 	}
 	else{
 		int Duplicate = 0;
+		LastName = CurName;
 		while(CurName != NULL){
 			Duplicate = CheckDuplicate(TempxIdx, CurName->xIdx, TempyIdx, CurName->yIdx, ResultPointCache->CacheCnt/2);
 			if(Duplicate == 1){
@@ -214,17 +256,6 @@ PointCacheStruct* InitPointCache(int CacheLen){
 
 	return PointCache;
 }
-int ReleasePointCache(PointCacheStruct** PointCachePointer){
-	PointCacheStruct* PointCache;
-	PointCache = *PointCachePointer;
-
-	free(PointCache->P);
-	PointCache->P = NULL;
-	free(*PointCachePointer);
-	*PointCachePointer = NULL;
-
-	return 0;
-}
 int PushPointCache(Point P, PointCacheStruct* PointCache){
 	PointCache->P[PointCache->CacheCnt++] = P;
 	return 0;
@@ -261,39 +292,25 @@ int FindValYInPointCache(int ValY, int StartIdx, PointCacheStruct* PointCache){
 	return -1;
 }
 
-int FileWritePointCache(PointCacheStruct* PointCache){
-	int i;
-	FILE* Fid = fopen(FileDetail, "a+");
-	if(Fid == NULL){
-		return -1;
-	}
-
-	for(i=0;i<PointCache->CacheCnt;i++){
-		fprintf(Fid,"(%d,%d)",PointCache->P[i].x, PointCache->P[i].y);
-	}
-	fprintf(Fid,"\n");
-	fclose(Fid);
-	return 0;
-}
-
 
 EdgeStruct* LoadCSV(void){
 	int i,j;
 	EdgeStruct* Edge;
 
-
 	// 1) Read CSV flie to Matrix.
 	FILE* Fid = NULL;
 	if((Fid = fopen(CSVName,"r")) == NULL){
-		printf("Can not open MyMatrix.csv!\n");
+		printf("Can not open Example.csv!\n");
 		return NULL;
 	}
 
 	Edge = (EdgeStruct*)malloc(sizeof(EdgeStruct));
 
-    char buffer[MaxMatrixN];//20450这个数组大小也要根据自己文件的列数进行相应修改。
+    char buffer[MaxMatrixN];
 	char *line;
 	char *record;
+	char *strtmp;
+	char *p;
 	int** Matrix;
 	Matrix = (int**)malloc(sizeof(int*) * MaxMatrixM);
 	for(i=0;i<MaxMatrixM;i++){
@@ -305,17 +322,20 @@ EdgeStruct* LoadCSV(void){
 
 	M = 0;
 	while ((line = fgets(buffer, sizeof(buffer), Fid))!=NULL){//当没有读取到文件末尾时循环继续
-		record = strtok(line, ",");
+		strtmp = (char*)calloc(strlen(line)+1,sizeof(char));
+		memcpy(strtmp, line, sizeof(char) * (strlen(line)+1));
+		record = strtok_r(strtmp, ",",&p);
 		N = 0;
 		while(record != NULL){
 			val = atoi(record);
 			//printf("%d",val);
 			Matrix[M][N] = val;
-			record = strtok(NULL, ",");
+			record = strtok_r(NULL, ",", &p);
 			N++;
 		}
 		//printf("\n");
 		M++;
+		free(strtmp);
 	}
 	fclose(Fid);
 	Fid = NULL;
@@ -370,4 +390,55 @@ EdgeStruct* LoadCSV(void){
 	Matrix = NULL;
 
 	return Edge;
+}
+
+int FileWritePointCache(PointCacheStruct* PointCache){
+	int i;
+	FILE* Fid = fopen(FileDetail, "a+");
+	if(Fid == NULL){
+		return -1;
+	}
+
+	for(i=0;i<PointCache->CacheCnt;i++){
+		fprintf(Fid,"(%d,%d)",PointCache->P[i].x, PointCache->P[i].y);
+	}
+	fprintf(Fid,"\n");
+	fclose(Fid);
+	return 0;
+}
+
+int ReleasePointCache(PointCacheStruct** PointCachePointer){
+	PointCacheStruct* PointCache;
+	PointCache = *PointCachePointer;
+
+	free(PointCache->P);
+	PointCache->P = NULL;
+	free(*PointCachePointer);
+	*PointCachePointer = NULL;
+
+	return 0;
+}
+int ReleaseEdge(EdgeStruct** EdgePointer){
+	int i,j;
+	EdgeStruct* Edge;
+	Edge = *EdgePointer;
+
+	for(i=0;i<Edge->M;i++){
+		free((Edge->RowEdge+i)->Idx);
+		(Edge->RowEdge+i)->Idx = NULL;
+	}
+	free(Edge->RowEdge);
+	Edge->RowEdge = NULL;
+
+	for(i=0;i<Edge->N;i++){
+		free((Edge->ColEdge+i)->Idx);
+		(Edge->ColEdge+i)->Idx = NULL;
+	}
+	free(Edge->ColEdge);
+	Edge->ColEdge = NULL;
+	
+	free(*EdgePointer);
+	*EdgePointer = NULL;
+
+	return 0;
 }

@@ -1,6 +1,5 @@
-木托盘上有4个名字的祭品最多有 : 17 个
-木托盘上有6个名字的祭品最多有 : 47 个
-木托盘上有8个名字的祭品最多有 : 54 个
-木托盘上有10个名字的祭品最多有 : 13 个
-木托盘上有12个名字的祭品最多有 : 1 个
-木托盘上有14个名字的祭品最多有 : 1 个
+The offerings with  4 names on the wooden tray have a maximum of 64
+The offerings with  6 names on the wooden tray have a maximum of 704
+The offerings with  8 names on the wooden tray have a maximum of 5312
+The offerings with 10 names on the wooden tray have a maximum of 54784
+The offerings with 12 names on the wooden tray have a maximum of 684960
