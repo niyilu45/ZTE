@@ -1,0 +1,6 @@
+The offerings with  4 names on the wooden tray have a maximum of 64
+The offerings with  6 names on the wooden tray have a maximum of 256
+The offerings with  8 names on the wooden tray have a maximum of 5056
+The offerings with 10 names on the wooden tray have a maximum of 47296
+The offerings with 12 names on the wooden tray have a maximum of 566368
+The offerings with 14 names on the wooden tray have a maximum of 6402816
